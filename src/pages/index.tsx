@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 
 const geistSans = Geist({
@@ -11,57 +13,103 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+type Post = {
+  id: number;
+  title: string;
+  content?: string | null;
+  published: boolean;
+  createdAt: string;
+  category?: { id: number; name: string } | null;
+};
+
 export default function Home() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch posts from the API
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/posts");
+        if (!res.ok) throw new Error(`Failed to load posts (${res.status})`);
+        const data = await res.json();
+        if (isMounted) setPosts(data);
+      } catch (e: unknown) {
+        const errorMessage =
+          e instanceof Error ? e.message : "Failed to load posts";
+        if (isMounted) setError(errorMessage);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const chip = (label: string) => (
+    <span className="text-xs px-2 py-0.5 rounded-full border border-black/10 dark:border-white/20">
+      {label}
+    </span>
+  );
+
   return (
     <div
       className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
     >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+      <main className="flex w-full max-w-5xl flex-col gap-6 row-start-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Image
               className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src="/next.svg"
+              alt="Next.js logo"
+              width={120}
+              height={28}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <h1 className="text-xl font-semibold">Posts</h1>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            {chip("Next.js")}
+            {chip("Prisma")}
+          </div>
         </div>
+
+        {loading && <p className="text-sm opacity-70">Loading posts…</p>}
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+        {/* Display posts if available */}
+        {!loading && !error && (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {posts.map((post) => (
+              <li key={post.id}>
+                <Link
+                  href={`/posts/${post.id}`}
+                  className="block rounded-lg border border-black/[.08] dark:border-white/[.145] p-4 hover:shadow-sm transition-shadow bg-white/60 dark:bg-black/10"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-base font-semibold leading-snug line-clamp-2">
+                      {post.title}
+                    </h2>
+                    {post.published ? chip("Published") : chip("Draft")}
+                  </div>
+                  <p className="mt-2 text-sm text-black/70 dark:text-white/70 line-clamp-3">
+                    {post.content || "No content"}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 text-xs">
+                    {post.category && chip(post.category.name)}
+                    <span className="opacity-60">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <a
